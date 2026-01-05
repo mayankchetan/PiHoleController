@@ -110,7 +110,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Pi-hole Controller backend running on port ${PORT}`);
-  console.log(`Log file: ${LOG_FILE}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Pi-hole Controller backend running on port ${PORT}`);
+    console.log(`Log file: ${LOG_FILE}`);
+  });
+}
+
+module.exports = app;
