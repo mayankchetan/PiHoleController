@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pi-hole Controller Logs</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f5f5;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    h1 {
+      color: #367fa9;
+      margin: 0;
+    }
+    .back-link {
+      color: #666;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      text-align: center;
+      border-left: 4px solid #367fa9;
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+    }
+    .stat-label {
+      font-size: 14px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #f8f9fa;
+      font-weight: bold;
+      color: #555;
+      cursor: pointer;
+    }
+    tr:hover {
+      background-color: #f9f9f9;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      color: white;
+    }
+    .badge-enable {
+      background-color: #4caf50;
+    }
+    .badge-disable {
+      background-color: #e4382c;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Access Logs</h1>
+    <a href="controller.html" class="back-link">← Back to Controller</a>
+  </div>
+
+  <div class="stats-grid" id="stats-container">
+    <div class="stat-card">
+      <div class="stat-value" id="stat-total">-</div>
+      <div class="stat-label">Total Actions</div>
+    </div>
+    <div class="stat-card" style="border-left-color: #4caf50;">
+      <div class="stat-value" id="stat-enables">-</div>
+      <div class="stat-label">Enables</div>
+    </div>
+    <div class="stat-card" style="border-left-color: #e4382c;">
+      <div class="stat-value" id="stat-disables">-</div>
+      <div class="stat-label">Disables</div>
+    </div>
+    <div class="stat-card" style="border-left-color: #f7a145;">
+      <div class="stat-value" id="stat-ips">-</div>
+      <div class="stat-label">Unique IPs</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Pi-hole</th>
+            <th>Action</th>
+            <th>Duration</th>
+            <th>Client IP</th>
+            <th>User Agent</th>
+          </tr>
+        </thead>
+        <tbody id="logs-body">
+          <tr><td colspan="6" class="loading">Loading logs...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    async function loadLogs() {
+      try {
+        const response = await fetch('/api/logs?limit=200');
+        const data = await response.json();
+
+        updateStats(data.logs);
+        renderTable(data.logs);
+      } catch (error) {
+        console.error('Failed to load logs:', error);
+        document.getElementById('logs-body').innerHTML = '<tr><td colspan="6" style="text-align:center;color:red">Error loading logs</td></tr>';
+      }
+    }
+
+    function updateStats(logs) {
+      const stats = {
+        total: logs.length,
+        enables: logs.filter(l => l.action === 'enable').length,
+        disables: logs.filter(l => l.action === 'disable').length,
+        uniqueIPs: new Set(logs.map(l => l.ip)).size
+      };
+
+      document.getElementById('stat-total').textContent = stats.total;
+      document.getElementById('stat-enables').textContent = stats.enables;
+      document.getElementById('stat-disables').textContent = stats.disables;
+      document.getElementById('stat-ips').textContent = stats.uniqueIPs;
+    }
+
+    function formatTimestamp(isoString) {
+      return new Date(isoString).toLocaleString();
+    }
+
+    function formatDuration(seconds) {
+      if (!seconds) return '-';
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      let result = '';
+      if (h > 0) result += `${h}h `;
+      if (m > 0) result += `${m}m `;
+      if (s > 0 || result === '') result += `${s}s`;
+      return result.trim();
+    }
+
+    function renderTable(logs) {
+      const tbody = document.getElementById('logs-body');
+
+      if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No logs found</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = logs.map(log => `
+        <tr>
+          <td>${formatTimestamp(log.timestamp)}</td>
+          <td>${log.pihole || '-'}</td>
+          <td><span class="badge badge-${log.action}">${log.action.toUpperCase()}</span></td>
+          <td>${formatDuration(log.duration)}</td>
+          <td>${log.ip}</td>
+          <td title="${log.userAgent}" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${log.userAgent ? log.userAgent.split(')')[0] + ')' : '-'}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // Initial load
+    loadLogs();
+
+    // Auto-refresh every 30s
+    setInterval(loadLogs, 30000);
+  </script>
+</body>
+</html>
