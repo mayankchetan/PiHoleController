@@ -116,6 +116,10 @@ Now, you can access the controller by navigating to `https://pi.hole/controller.
 4. **Create Shortcuts:**
    After clicking an action, copy the URL from your browser to bookmark it as a shortcut for that specific action.
 
+5. **Physical Buttons / Direct URL Triggers:**
+   You can trigger actions directly via the URL, which is perfect for physical buttons, stream decks, or smart home automations. For example, to trigger a 5-minute disable, you can call the URL with the `action` and `duration` (in seconds) parameters:
+   `https://pi.hole/controller.html?action=disable&duration=300`
+
 ## Customization
 
 For family-friendly setups or specialized use cases, you can customize the controller interface using URL parameters:
