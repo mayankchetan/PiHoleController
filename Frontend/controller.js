@@ -607,14 +607,27 @@ async function initialize() {
     const authSuccess = await authenticateAll();
 
     if (authSuccess) {
-       await checkBlockingStatus();
-
        if (action) {
          await executeAction();
+       } else {
+         await checkBlockingStatus();
        }
 
        if (CONFIG.refresh_interval > 0) {
          state.autoRefreshInterval = setInterval(checkBlockingStatus, CONFIG.refresh_interval * 1000);
+
+         // Pause polling when page is hidden
+         document.addEventListener("visibilitychange", () => {
+           if (document.visibilityState === 'hidden') {
+             if (state.autoRefreshInterval) {
+               clearInterval(state.autoRefreshInterval);
+               state.autoRefreshInterval = null;
+             }
+           } else {
+             checkBlockingStatus();
+             state.autoRefreshInterval = setInterval(checkBlockingStatus, CONFIG.refresh_interval * 1000);
+           }
+         });
        }
     } else {
        showStatus("Authentication failed for all Pi-holes", "error");
@@ -651,6 +664,7 @@ function updateAdminLink() {
 // ====================================================
 function setupPresetButtons() {
   elements.presetContainer.innerHTML = "";
+  const fragment = document.createDocumentFragment();
   CONFIG.preset_durations.forEach((preset) => {
     const button = document.createElement("button");
     button.textContent = preset.label;
@@ -666,8 +680,9 @@ function setupPresetButtons() {
     });
     button.style.backgroundColor = "#f7a145";
     button.style.color = "white";
-    elements.presetContainer.appendChild(button);
+    fragment.appendChild(button);
   });
+  elements.presetContainer.appendChild(fragment);
 }
 
 // Helpers for URL builder needed? Yes, for reload
